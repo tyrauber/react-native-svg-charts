@@ -1,17 +1,24 @@
-import PropTypes from 'prop-types'
+import React from 'react'
 import * as array from 'd3-array'
 import * as scale from 'd3-scale'
 import * as shape from 'd3-shape'
 import BarChart from './bar-chart'
 
-class GroupedBarChart extends BarChart {
-    calcXScale(domain) {
+interface BarChartGroupedProps extends React.ComponentProps<typeof BarChart> {
+    data: Array<{
+        data: Array<number | { value: number; svg?: object }>
+        svg?: object
+    }>
+}
+
+class BarChartGrouped extends BarChart<BarChartGroupedProps> {
+    calcXScale(domain: any[]) {
         const {
             horizontal,
             contentInset: { left = 0, right = 0 },
             spacingInner,
             spacingOuter,
-            clamp,
+            clamp = false,
         } = this.props
 
         const { width } = this.state
@@ -32,13 +39,13 @@ class GroupedBarChart extends BarChart {
             .paddingOuter([spacingOuter])
     }
 
-    calcYScale(domain) {
+    calcYScale(domain: any[]) {
         const {
             horizontal,
             spacingInner,
             spacingOuter,
             contentInset: { top = 0, bottom = 0 },
-            clamp,
+            clamp = false,
         } = this.props
 
         const { height } = this.state
@@ -59,7 +66,7 @@ class GroupedBarChart extends BarChart {
             .clamp(clamp)
     }
 
-    calcAreas(x, y) {
+    calcAreas(x: any, y: any) {
         const { horizontal, data, yAccessor } = this.props
 
         const _data = data.map((obj) => {
@@ -86,7 +93,7 @@ class GroupedBarChart extends BarChart {
             }
         })
 
-        const areas = []
+        const areas: Array<{ bar: any; path: string }> = []
 
         if (horizontal) {
             const barWidth = y.bandwidth() / data.length
@@ -137,7 +144,7 @@ class GroupedBarChart extends BarChart {
         const { data, yAccessor, gridMin, gridMax } = this.props
         const dataExtent = array.merge(data.map((obj) => obj.data.map((item) => yAccessor({ item }))))
 
-        const extent = array.extent([...dataExtent, gridMax, gridMin])
+        const extent = array.extent([...dataExtent, gridMin, gridMax])
 
         const { yMin = extent[0], yMax = extent[1] } = this.props
 
@@ -150,14 +157,4 @@ class GroupedBarChart extends BarChart {
     }
 }
 
-GroupedBarChart.propTypes = {
-    ...BarChart.propTypes,
-    data: PropTypes.arrayOf(
-        PropTypes.shape({
-            data: PropTypes.array.isRequired,
-            svg: PropTypes.object,
-        })
-    ).isRequired,
-}
-
-export default GroupedBarChart
+export default BarChartGrouped

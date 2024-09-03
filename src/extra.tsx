@@ -1,3 +1,4 @@
+import React, { ReactElement } from 'react'
 import React from 'react'
 import { G } from 'react-native-svg'
 

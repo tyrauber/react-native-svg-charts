@@ -1,8 +1,16 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { G, Line } from 'react-native-svg'
 
-const Horizontal = ({ ticks = [], y, svg }) => {
+interface GridProps {
+    ticks?: number[]
+    x?: (value: number) => number
+    y?: (value: number) => number
+    svg?: React.SVGProps<SVGLineElement>
+    direction?: 'VERTICAL' | 'HORIZONTAL' | 'BOTH'
+    belowChart?: boolean
+}
+
+const Horizontal: React.FC<GridProps> = ({ ticks = [], y = (v) => v, svg = {} }) => {
     return (
         <G>
             {ticks.map((tick) => (
@@ -21,7 +29,7 @@ const Horizontal = ({ ticks = [], y, svg }) => {
     )
 }
 
-const Vertical = ({ ticks = [], x, svg }) => {
+const Vertical: React.FC<GridProps> = ({ ticks = [], x = (v) => v, svg = {} }) => {
     return (
         <G>
             {ticks.map((tick, index) => (
@@ -40,7 +48,7 @@ const Vertical = ({ ticks = [], x, svg }) => {
     )
 }
 
-const Both = (props) => {
+const Both: React.FC<GridProps> = (props) => {
     return (
         <G>
             <Horizontal {...props} />
@@ -49,51 +57,27 @@ const Both = (props) => {
     )
 }
 
-Vertical.propTypes = {
-    x: PropTypes.func,
-    dataPoints: PropTypes.array,
-    svg: PropTypes.object,
-}
-
-Horizontal.propTypes = {
-    y: PropTypes.func,
-    ticks: PropTypes.array,
-}
-
-Both.propTypes = {
-    ...Vertical.propTypes,
-    ...Horizontal.propTypes,
-}
-
 const Direction = {
     VERTICAL: 'VERTICAL',
     HORIZONTAL: 'HORIZONTAL',
     BOTH: 'BOTH',
-}
+} as const
 
-const Grid = ({ direction, ...props }) => {
-    if (direction === Direction.VERTICAL) {
-        return <Vertical {...props} />
-    } else if (direction === Direction.HORIZONTAL) {
-        return <Horizontal {...props} />
-    } else if (direction === Direction.BOTH) {
-        return <Both {...props} />
+type DirectionType = (typeof Direction)[keyof typeof Direction]
+
+const Grid: React.FC<GridProps> = ({ direction = Direction.HORIZONTAL, ...props }) => {
+    switch (direction) {
+        case Direction.VERTICAL:
+            return <Vertical {...props} />
+        case Direction.HORIZONTAL:
+            return <Horizontal {...props} />
+        case Direction.BOTH:
+            return <Both {...props} />
+        default:
+            return null
     }
-
-    return null
 }
 
 Grid.Direction = Direction
-
-Grid.propTypes = {
-    direction: PropTypes.oneOf(Object.values(Direction)),
-    belowChart: PropTypes.bool,
-    svg: PropTypes.object,
-}
-
-Grid.defaultProps = {
-    direction: Direction.HORIZONTAL,
-    belowChart: true,
-}
 
 export default Grid

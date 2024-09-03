@@ -1,17 +1,35 @@
 import React, { PureComponent } from 'react'
-import { View } from 'react-native'
-import PropTypes from 'prop-types'
+import { View, ViewStyle } from 'react-native'
 import * as shape from 'd3-shape'
 import Path from './animated-path'
 import Svg, { G } from 'react-native-svg'
 
-class ProgressCircle extends PureComponent {
-    state = {
+interface ProgressCircleProps {
+    progress: number
+    style?: ViewStyle
+    progressColor?: string
+    backgroundColor?: string
+    strokeWidth?: number
+    startAngle?: number
+    endAngle?: number
+    animate?: boolean
+    animateDuration?: number
+    cornerRadius?: number
+    children?: React.ReactNode
+}
+
+interface ProgressCircleState {
+    height: number
+    width: number
+}
+
+class ProgressCircle extends PureComponent<ProgressCircleProps, ProgressCircleState> {
+    state: ProgressCircleState = {
         height: 0,
         width: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -44,7 +62,6 @@ class ProgressCircle extends PureComponent {
             progress = 0
         }
 
-        // important order to have progress render over "rest"
         const data = [
             {
                 key: 'rest',
@@ -62,19 +79,19 @@ class ProgressCircle extends PureComponent {
             .pie()
             .value((d) => d.value)
             .sort((a) => (a.key === 'rest' ? 1 : -1))
-            .startAngle(startAngle)
-            .endAngle(endAngle)(data)
+            .startAngle(startAngle!)
+            .endAngle(endAngle!)(data)
 
         const arcs = pieSlices.map((slice, index) => ({
             ...data[index],
             ...slice,
             path: shape
                 .arc()
-                .outerRadius(outerDiameter / 2) // Radius of the pie
-                .innerRadius(outerDiameter / 2 - strokeWidth) // Inner radius: to create a donut or pie
-                .startAngle(index === 0 ? startAngle : slice.startAngle)
-                .endAngle(index === 0 ? endAngle : slice.endAngle)
-                .cornerRadius(cornerRadius)(),
+                .outerRadius(outerDiameter / 2)
+                .innerRadius(outerDiameter / 2 - strokeWidth!)
+                .startAngle(index === 0 ? startAngle! : slice.startAngle)
+                .endAngle(index === 0 ? endAngle! : slice.endAngle)
+                .cornerRadius(cornerRadius!)(),
         }))
 
         const extraProps = {
@@ -83,30 +100,27 @@ class ProgressCircle extends PureComponent {
         }
 
         return (
-            <View style={style} onLayout={(event) => this._onLayout(event)}>
+            <View style={style} onLayout={this._onLayout}>
                 {height > 0 && width > 0 && (
                     <Svg style={{ height, width }}>
-                        {/* center the progress circle*/}
                         <G x={width / 2} y={height / 2}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
+                                if (React.isValidElement(child) && child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
                             })}
-                            {arcs.map((shape, index) => {
-                                return (
-                                    <Path
-                                        key={index}
-                                        fill={shape.color}
-                                        d={shape.path}
-                                        animate={animate}
-                                        animationDuration={animateDuration}
-                                    />
-                                )
-                            })}
+                            {arcs.map((shape, index) => (
+                                <Path
+                                    key={index}
+                                    fill={shape.color}
+                                    d={shape.path}
+                                    animate={animate}
+                                    animationDuration={animateDuration}
+                                />
+                            ))}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
+                                if (React.isValidElement(child) && !child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -117,28 +131,6 @@ class ProgressCircle extends PureComponent {
             </View>
         )
     }
-}
-
-ProgressCircle.propTypes = {
-    progress: PropTypes.number.isRequired,
-    style: PropTypes.any,
-    progressColor: PropTypes.any,
-    backgroundColor: PropTypes.any,
-    strokeWidth: PropTypes.number,
-    startAngle: PropTypes.number,
-    endAngle: PropTypes.number,
-    animate: PropTypes.bool,
-    cornerRadius: PropTypes.number,
-    animateDuration: PropTypes.number,
-}
-
-ProgressCircle.defaultProps = {
-    progressColor: 'black',
-    backgroundColor: '#ECECEC',
-    strokeWidth: 5,
-    startAngle: 0,
-    endAngle: Math.PI * 2,
-    cornerRadius: 45,
 }
 
 export default ProgressCircle

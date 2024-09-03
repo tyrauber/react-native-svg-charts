@@ -1,19 +1,53 @@
 import React, { PureComponent } from 'react'
-import { View } from 'react-native'
-import PropTypes from 'prop-types'
+import { View, ViewStyle } from 'react-native'
 import Svg from 'react-native-svg'
 import * as array from 'd3-array'
 import * as scale from 'd3-scale'
 import * as shape from 'd3-shape'
 import Path from '../animated-path'
 
-class StackedBarGrouped extends PureComponent {
-    state = {
+interface StackedBarGroupedProps {
+    data: Array<{
+        data: Array<{ [key: string]: number | { svg?: object } }>
+        svg?: object
+    }>
+    keys: Array<Array<string>>
+    colors: Array<Array<string>>
+    offset?: (series: any, order: any) => any
+    order?: (series: any) => any
+    style?: ViewStyle
+    spacingInner?: number
+    spacingOuter?: number
+    animate?: boolean
+    animationDuration?: number
+    contentInset?: {
+        top?: number
+        left?: number
+        right?: number
+        bottom?: number
+    }
+    gridMin?: number
+    gridMax?: number
+    valueAccessor?: (params: { item: any; key: string }) => number
+    borderRadius?: number
+    innerBarSpace?: number
+    horizontal?: boolean
+    numberOfTicks?: number
+    children?: React.ReactNode
+}
+
+interface StackedBarGroupedState {
+    width: number
+    height: number
+}
+
+class StackedBarGrouped extends PureComponent<StackedBarGroupedProps, StackedBarGroupedState> {
+    state: StackedBarGroupedState = {
         width: 0,
         height: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -22,12 +56,12 @@ class StackedBarGrouped extends PureComponent {
         this.setState({ height, width })
     }
 
-    calcXScale(domain) {
+    private calcXScale(domain: any[]) {
         const {
             horizontal,
-            contentInset: { left = 0, right = 0 },
-            spacingInner,
-            spacingOuter,
+            contentInset: { left = 0, right = 0 } = {},
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
         } = this.props
 
         const { width } = this.state
@@ -47,12 +81,12 @@ class StackedBarGrouped extends PureComponent {
             .paddingOuter([spacingOuter])
     }
 
-    calcYScale(domain) {
+    private calcYScale(domain: any[]) {
         const {
             horizontal,
-            contentInset: { top = 0, bottom = 0 },
-            spacingInner,
-            spacingOuter,
+            contentInset: { top = 0, bottom = 0 } = {},
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
         } = this.props
 
         const { height } = this.state
@@ -72,8 +106,9 @@ class StackedBarGrouped extends PureComponent {
             .range([height - bottom, top])
     }
 
-    calcAreas(x, y, series) {
-        const { horizontal, colors, keys, data, borderRadius: initialBorderRadius, innerBarSpace } = this.props
+    private calcAreas(x: any, y: any, series: any[]) {
+        const { horizontal, colors, keys, data, borderRadius: initialBorderRadius = 0, innerBarSpace = 0 } = this.props
+
         let areas
         let barWidth
 
@@ -87,15 +122,15 @@ class StackedBarGrouped extends PureComponent {
 
                         const path = shape
                             .area()
-                            .x0((d) => x(d[0]))
-                            .x1((d) => x(d[1]))
+                            .x0((d: any) => x(d[0]))
+                            .x1((d: any) => x(d[1]))
                             .y(
-                                (d, _index) =>
+                                (d: any, _index: number) =>
                                     (_index === 0
                                         ? y(entryIndex) + barWidth * stackIndex + leftMargin
                                         : y(entryIndex) + barWidth + barWidth * stackIndex) - leftMargin
                             )
-                            .defined((d) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
+                            .defined((d: any) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
 
                         return {
                             path,
@@ -143,7 +178,15 @@ class StackedBarGrouped extends PureComponent {
         return array.merge(areas)
     }
 
-    coordinatesToPathCommands = (x0, y0, x1, y1, borderRadius, showTopBorder, showBottomBorder) => {
+    private coordinatesToPathCommands = (
+        x0: number,
+        y0: number,
+        x1: number,
+        y1: number,
+        borderRadius: number,
+        showTopBorder: boolean,
+        showBottomBorder: boolean
+    ) => {
         const commands = []
         commands.push({ marker: 'M', values: [x0, y0] })
 
@@ -201,13 +244,13 @@ class StackedBarGrouped extends PureComponent {
         return commands
     }
 
-    commandsToSvgPath = (commands) =>
+    private commandsToSvgPath = (commands: Array<{ marker: string; values: number[] }>) =>
         commands
             .map((command) => `${command.marker} ${command.values.join(',')}`)
             .join(' ')
             .trim()
 
-    calcExtent(values) {
+    private calcExtent(values: number[][]) {
         const { gridMax, gridMin } = this.props
 
         // One more merge for stacked groups
@@ -216,15 +259,21 @@ class StackedBarGrouped extends PureComponent {
         return array.extent([...mergedValues, gridMin, gridMax])
     }
 
-    calcIndexes() {
+    private calcIndexes() {
         const { data } = this.props
 
         // Must return an array with indexes for the number of groups to be shown
         return data[0].data.map((_, index) => index)
     }
 
-    getSeries() {
-        const { data, keys, offset, order, valueAccessor } = this.props
+    private getSeries() {
+        const {
+            data,
+            keys,
+            offset = shape.stackOffsetNone,
+            order = shape.stackOrderNone,
+            valueAccessor = ({ item, key }) => item[key],
+        } = this.props
 
         return data.map((obj, index) =>
             shape
@@ -237,7 +286,7 @@ class StackedBarGrouped extends PureComponent {
     }
 
     render() {
-        const { data, animate, animationDuration, style, numberOfTicks, children, horizontal } = this.props
+        const { data, animate, animationDuration, style, numberOfTicks = 10, children, horizontal } = this.props
 
         const { height, width } = this.state
 
@@ -249,7 +298,7 @@ class StackedBarGrouped extends PureComponent {
 
         //double merge arrays to extract just the values
         const values = array.merge(array.merge(series))
-        const indexes = this.calcIndexes(values)
+        const indexes = this.calcIndexes()
 
         const extent = this.calcExtent(values)
         const ticks = array.ticks(extent[0], extent[1], numberOfTicks)
@@ -276,11 +325,11 @@ class StackedBarGrouped extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
                         <Svg style={{ height, width }}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
+                                if (React.isValidElement(child) && child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -292,7 +341,7 @@ class StackedBarGrouped extends PureComponent {
                                     const keyIndex = indexArea % data[areaIndex].data.length
                                     const key = `${areaIndex}-${keyIndex}-${bar.key}`
 
-                                    const { svg } = data[areaIndex].data[keyIndex][bar.key]
+                                    const { svg } = data[areaIndex].data[keyIndex][bar.key] as { svg?: object }
 
                                     return (
                                         <Path
@@ -307,7 +356,7 @@ class StackedBarGrouped extends PureComponent {
                                 })
                             })}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
+                                if (React.isValidElement(child) && !child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -318,46 +367,6 @@ class StackedBarGrouped extends PureComponent {
             </View>
         )
     }
-}
-
-StackedBarGrouped.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.object),
-    keys: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)).isRequired,
-    colors: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)).isRequired,
-    offset: PropTypes.func,
-    order: PropTypes.func,
-    style: PropTypes.any,
-    spacingInner: PropTypes.number,
-    spacingOuter: PropTypes.number,
-    animate: PropTypes.bool,
-    animationDuration: PropTypes.number,
-    contentInset: PropTypes.shape({
-        top: PropTypes.number,
-        left: PropTypes.number,
-        right: PropTypes.number,
-        bottom: PropTypes.number,
-    }),
-    gridMin: PropTypes.number,
-    gridMax: PropTypes.number,
-    valueAccessor: PropTypes.func,
-    borderRadius: PropTypes.number,
-    innerBarSpace: PropTypes.number,
-}
-
-StackedBarGrouped.defaultProps = {
-    spacingInner: 0.05,
-    spacingOuter: 0.05,
-    offset: shape.stackOffsetNone,
-    order: shape.stackOrderNone,
-    width: 100,
-    height: 100,
-    showZeroAxis: true,
-    contentInset: {},
-    numberOfTicks: 10,
-    showGrid: true,
-    valueAccessor: ({ item, key }) => item[key],
-    borderRadius: 0,
-    innerBarSpace: 0,
 }
 
 export default StackedBarGrouped

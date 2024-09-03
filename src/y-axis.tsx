@@ -1,17 +1,39 @@
 import React, { PureComponent } from 'react'
-import PropTypes from 'prop-types'
-import { Text, View } from 'react-native'
+import { Text, View, ViewStyle } from 'react-native'
 import { Svg, G, Text as SVGText } from 'react-native-svg'
 import * as d3Scale from 'd3-scale'
 import * as array from 'd3-array'
 
-class YAxis extends PureComponent {
-    state = {
+interface YAxisProps {
+    data: Array<object | number>
+    svg?: object
+    style?: ViewStyle
+    numberOfTicks?: number
+    formatLabel?: (value: number, index: number, ticks: number[]) => string
+    contentInset?: {
+        top?: number
+        bottom?: number
+    }
+    min?: number
+    max?: number
+    yAccessor?: ({ item, index }: { item: any; index: number }) => number
+    scale?: Function
+    spacingInner?: number
+    spacingOuter?: number
+}
+
+interface YAxisState {
+    height: number
+    width: number
+}
+
+class YAxis extends PureComponent<YAxisProps, YAxisState> {
+    state: YAxisState = {
         height: 0,
         width: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -20,12 +42,12 @@ class YAxis extends PureComponent {
         this.setState({ height, width })
     }
 
-    getY(domain) {
+    private getY(domain: number[]) {
         const {
-            scale,
-            spacingInner,
-            spacingOuter,
-            contentInset: { top = 0, bottom = 0 },
+            scale = d3Scale.scaleLinear,
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
+            contentInset: { top = 0, bottom = 0 } = {},
         } = this.props
 
         const { height } = this.state
@@ -44,14 +66,23 @@ class YAxis extends PureComponent {
                 .paddingOuter([spacingOuter])
 
             //add half a bar to center label
-            return (value) => y(value) + y.bandwidth() / 2
+            return (value: number) => y(value) + y.bandwidth() / 2
         }
 
         return y
     }
 
     render() {
-        const { style, data, scale, yAccessor, numberOfTicks, formatLabel, svg, children } = this.props
+        const {
+            style,
+            data,
+            scale = d3Scale.scaleLinear,
+            yAccessor = ({ item }) => item,
+            numberOfTicks = 10,
+            formatLabel = (value) => value && value.toString(),
+            svg = {},
+            children,
+        } = this.props
 
         const { height, width } = this.state
 
@@ -61,7 +92,7 @@ class YAxis extends PureComponent {
 
         const values = data.map((item, index) => yAccessor({ item, index }))
 
-        const extent = array.extent(values)
+        const extent = array.extent(values) as [number, number]
 
         const { min = extent[0], max = extent[1] } = this.props
 
@@ -73,7 +104,7 @@ class YAxis extends PureComponent {
         const ticks = scale === d3Scale.scaleBand ? values : y.ticks(numberOfTicks)
 
         const longestValue = ticks
-            .map((value, index) => formatLabel(value, index))
+            .map((value, index) => formatLabel(value, index, ticks))
             .reduce((prev, curr) => (prev.toString().length > curr.toString().length ? prev : curr), 0)
 
         const extraProps = {
@@ -86,7 +117,7 @@ class YAxis extends PureComponent {
 
         return (
             <View style={[style]}>
-                <View style={{ flexGrow: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flexGrow: 1 }} onLayout={this._onLayout}>
                     {/*invisible text to allow for parent resizing*/}
                     <Text
                         style={{
@@ -110,7 +141,7 @@ class YAxis extends PureComponent {
                         >
                             <G>
                                 {React.Children.map(children, (child) => {
-                                    return React.cloneElement(child, extraProps)
+                                    return React.cloneElement(child as React.ReactElement, extraProps)
                                 })}
                                 {// don't render labels if width isn't measured yet,
                                 // causes rendering issues
@@ -126,7 +157,7 @@ class YAxis extends PureComponent {
                                                 key={y(value)}
                                                 y={y(value)}
                                             >
-                                                {formatLabel(value, index, ticks.length)}
+                                                {formatLabel(value, index, ticks)}
                                             </SVGText>
                                         )
                                     })}
@@ -137,35 +168,6 @@ class YAxis extends PureComponent {
             </View>
         )
     }
-}
-
-YAxis.propTypes = {
-    data: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.object), PropTypes.arrayOf(PropTypes.number)]).isRequired,
-    svg: PropTypes.object,
-    style: PropTypes.any,
-    numberOfTicks: PropTypes.number,
-    formatLabel: PropTypes.func,
-    contentInset: PropTypes.shape({
-        top: PropTypes.number,
-        bottom: PropTypes.number,
-    }),
-    min: PropTypes.number,
-    max: PropTypes.number,
-    yAccessor: PropTypes.func,
-    scale: PropTypes.func,
-    spacingInner: PropTypes.number,
-    spacingOuter: PropTypes.number,
-}
-
-YAxis.defaultProps = {
-    numberOfTicks: 10,
-    spacingInner: 0.05,
-    spacingOuter: 0.05,
-    contentInset: {},
-    svg: {},
-    scale: d3Scale.scaleLinear,
-    formatLabel: (value) => value && value.toString(),
-    yAccessor: ({ item }) => item,
 }
 
 export default YAxis

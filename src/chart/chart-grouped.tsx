@@ -1,18 +1,29 @@
 import * as array from 'd3-array'
-import PropTypes from 'prop-types'
 import React, { PureComponent } from 'react'
 import { View } from 'react-native'
 import Svg from 'react-native-svg'
 import Path from '../animated-path'
-import Chart from './chart'
+import Chart, { ChartProps } from '.'
 
-class ChartGrouped extends PureComponent {
-    state = {
+export interface ChartGroupedProps extends ChartProps {
+    data: Array<{
+        data: Array<any>
+        svg?: object
+    }>
+}
+
+interface ChartGroupedState {
+    width: number
+    height: number
+}
+
+class ChartGrouped extends PureComponent<ChartGroupedProps, ChartGroupedState> {
+    state: ChartGroupedState = {
         width: 0,
         height: 0,
     }
 
-    _onLayout(event) {
+    _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -21,8 +32,8 @@ class ChartGrouped extends PureComponent {
         this.setState({ height, width })
     }
 
-    createPaths() {
-        throw 'Extending "ChartGrouped" requires you to override "createPaths'
+    createPaths(): { path: any[]; lines?: any[] } {
+        throw new Error('Extending "ChartGrouped" requires you to override "createPaths"')
     }
 
     render() {
@@ -66,7 +77,6 @@ class ChartGrouped extends PureComponent {
 
         const { yMin = yExtent[0], yMax = yExtent[1], xMin = xExtent[0], xMax = xExtent[1] } = this.props
 
-        //invert range to support svg coordinate system
         const y = yScale()
             .domain([yMin, yMax])
             .range([height - bottom, top])
@@ -97,18 +107,18 @@ class ChartGrouped extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
                         <Svg style={{ height, width }}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
+                                if (React.isValidElement(child) && child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
                             })}
                             {paths.path.map((path, index) => {
                                 const { svg: pathSvg } = data[index]
-                                const key = path + '-' + index
+                                const key = `${path}-${index}`
                                 return (
                                     <Path
                                         key={key}
@@ -122,7 +132,7 @@ class ChartGrouped extends PureComponent {
                                 )
                             })}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
+                                if (React.isValidElement(child) && !child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -133,24 +143,6 @@ class ChartGrouped extends PureComponent {
             </View>
         )
     }
-}
-
-ChartGrouped.propTypes = {
-    ...Chart.propTypes,
-    data: PropTypes.arrayOf(
-        PropTypes.shape({
-            data: PropTypes.oneOfType([
-                PropTypes.arrayOf(PropTypes.object),
-                PropTypes.arrayOf(PropTypes.number),
-                PropTypes.arrayOf(PropTypes.array),
-            ]),
-            svg: PropTypes.object,
-        })
-    ).isRequired,
-}
-
-ChartGrouped.defaultProps = {
-    ...Chart.defaultProps,
 }
 
 export default ChartGrouped

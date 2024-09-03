@@ -1,19 +1,47 @@
 import * as array from 'd3-array'
 import * as scale from 'd3-scale'
 import * as shape from 'd3-shape'
-import PropTypes from 'prop-types'
 import React, { PureComponent } from 'react'
 import { View } from 'react-native'
 import Svg from 'react-native-svg'
 import Path from '../animated-path'
 
-class BarChart extends PureComponent {
-    state = {
+interface BarChartProps {
+    data: Array<number | { value: number; svg?: object }>
+    style?: object
+    spacingInner?: number
+    spacingOuter?: number
+    animate?: boolean
+    animationDuration?: number
+    contentInset?: {
+        top?: number
+        left?: number
+        right?: number
+        bottom?: number
+    }
+    numberOfTicks?: number
+    gridMin?: number
+    gridMax?: number
+    svg?: object
+    yMin?: number
+    yMax?: number
+    clamp?: boolean
+    horizontal?: boolean
+    yAccessor?: ({ item }: { item: any }) => number
+}
+
+interface BarChartState {
+    width: number
+    height: number
+}
+
+class BarChart extends PureComponent<BarChartProps, BarChartState> {
+    state: BarChartState = {
         width: 0,
         height: 0,
     }
 
-    _onLayout(event) {
+    _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -22,13 +50,13 @@ class BarChart extends PureComponent {
         this.setState({ height, width })
     }
 
-    calcXScale(domain) {
+    calcXScale(domain: any[]) {
         const {
             horizontal,
             contentInset: { left = 0, right = 0 },
-            spacingInner,
-            spacingOuter,
-            clamp,
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
+            clamp = false,
         } = this.props
 
         const { width } = this.state
@@ -49,13 +77,13 @@ class BarChart extends PureComponent {
             .paddingOuter([spacingOuter])
     }
 
-    calcYScale(domain) {
+    calcYScale(domain: any[]) {
         const {
             horizontal,
             contentInset: { top = 0, bottom = 0 },
-            spacingInner,
-            spacingOuter,
-            clamp,
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
+            clamp = false,
         } = this.props
 
         const { height } = this.state
@@ -76,8 +104,8 @@ class BarChart extends PureComponent {
             .clamp(clamp)
     }
 
-    calcAreas(x, y) {
-        const { horizontal, data, yAccessor } = this.props
+    calcAreas(x: any, y: any) {
+        const { horizontal, data, yAccessor = ({ item }: { item: any }) => item } = this.props
 
         const values = data.map((item) => yAccessor({ item }))
 
@@ -105,10 +133,10 @@ class BarChart extends PureComponent {
     }
 
     calcExtent() {
-        const { data, gridMin, gridMax, yAccessor } = this.props
+        const { data, gridMin, gridMax, yAccessor = ({ item }: { item: any }) => item } = this.props
         const values = data.map((obj) => yAccessor({ item: obj }))
 
-        const extent = array.extent([...values, gridMax, gridMin])
+        const extent = array.extent([...values, gridMin, gridMax])
 
         const { yMin = extent[0], yMax = extent[1] } = this.props
 
@@ -121,7 +149,17 @@ class BarChart extends PureComponent {
     }
 
     render() {
-        const { data, animate, animationDuration, style, numberOfTicks, svg, horizontal, children } = this.props
+        const { 
+            data, 
+            animate, 
+            animationDuration, 
+            style, 
+            numberOfTicks = 10, 
+            svg = {}, 
+            horizontal, 
+            children,
+            contentInset = {}
+        } = this.props
 
         const { height, width } = this.state
 
@@ -157,12 +195,12 @@ class BarChart extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
                         <Svg style={{ height, width }}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
-                                    return React.cloneElement(child, extraProps)
+                                if (child && (child as React.ReactElement).props.belowChart) {
+                                    return React.cloneElement(child as React.ReactElement, extraProps)
                                 }
                             })}
                             {areas.map((area, index) => {
@@ -183,8 +221,8 @@ class BarChart extends PureComponent {
                                 )
                             })}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
-                                    return React.cloneElement(child, extraProps)
+                                if (child && !(child as React.ReactElement).props.belowChart) {
+                                    return React.cloneElement(child as React.ReactElement, extraProps)
                                 }
                             })}
                         </Svg>
@@ -193,38 +231,6 @@ class BarChart extends PureComponent {
             </View>
         )
     }
-}
-
-BarChart.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.object])).isRequired,
-    style: PropTypes.any,
-    spacingInner: PropTypes.number,
-    spacingOuter: PropTypes.number,
-    animate: PropTypes.bool,
-    animationDuration: PropTypes.number,
-    contentInset: PropTypes.shape({
-        top: PropTypes.number,
-        left: PropTypes.number,
-        right: PropTypes.number,
-        bottom: PropTypes.number,
-    }),
-    numberOfTicks: PropTypes.number,
-    gridMin: PropTypes.number,
-    gridMax: PropTypes.number,
-    svg: PropTypes.object,
-
-    yMin: PropTypes.any,
-    yMax: PropTypes.any,
-    clamp: PropTypes.bool,
-}
-
-BarChart.defaultProps = {
-    spacingInner: 0.05,
-    spacingOuter: 0.05,
-    contentInset: {},
-    numberOfTicks: 10,
-    svg: {},
-    yAccessor: ({ item }) => item,
 }
 
 export default BarChart

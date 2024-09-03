@@ -1,28 +1,53 @@
 import React, { PureComponent } from 'react'
-import { View, Platform } from 'react-native'
-import PropTypes from 'prop-types'
+import { View, Platform, ViewStyle } from 'react-native'
 import * as shape from 'd3-shape'
 import Svg, { G, Path } from 'react-native-svg'
 
-class PieChart extends PureComponent {
-    state = {
+interface PieChartProps {
+    data: Array<{
+        key: string | number
+        value: number
+        svg?: object
+        arc?: object
+        onPress?: () => void
+    }>
+    innerRadius?: number | string
+    outerRadius?: number | string
+    labelRadius?: number | string
+    padAngle?: number
+    animate?: boolean
+    animationDuration?: number
+    style?: ViewStyle
+    sort?: (a: any, b: any) => number
+    valueAccessor?: (item: { item: any }) => number
+    children?: React.ReactNode
+    startAngle?: number
+    endAngle?: number
+}
+
+interface PieChartState {
+    height: number
+    width: number
+}
+
+class PieChart extends PureComponent<PieChartProps, PieChartState> {
+    state: PieChartState = {
         height: 0,
         width: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
             },
         } = event
-
         this.setState({ height, width })
     }
 
-    _calculateRadius(arg, max, defaultVal) {
+    private _calculateRadius(arg: number | string | undefined, max: number, defaultVal: number): number {
         if (typeof arg === 'string') {
-            return (arg.split('%')[0] / 100) * max
+            return (parseInt(arg) / 100) * max
         } else if (arg) {
             return arg
         } else {
@@ -33,26 +58,21 @@ class PieChart extends PureComponent {
     render() {
         const {
             data,
-            dataPoints,
-            innerRadius,
-            outerRadius,
+            innerRadius = '50%',
+            outerRadius = '100%',
             labelRadius,
-            padAngle,
+            padAngle = 0.05,
             animate,
             animationDuration,
             style,
-            sort,
-            valueAccessor,
+            sort = (a, b) => b.value - a.value,
+            valueAccessor = ({ item }) => item.value,
             children,
-            startAngle,
-            endAngle,
+            startAngle = 0,
+            endAngle = Math.PI * 2,
         } = this.props
 
         const { height, width } = this.state
-
-        if (!data && dataPoints) {
-            throw `"dataPoints" have been renamed to "data" to better reflect the fact that it's an array of objects`
-        }
 
         if (data.length === 0) {
             return <View style={style} />
@@ -68,38 +88,31 @@ class PieChart extends PureComponent {
         const _innerRadius = this._calculateRadius(innerRadius, maxRadius, 0)
         const _labelRadius = this._calculateRadius(labelRadius, maxRadius, _outerRadius)
 
-        if (outerRadius > 0 && _innerRadius >= outerRadius) {
+        if (_innerRadius >= _outerRadius) {
             console.warn('innerRadius is equal to or greater than outerRadius')
         }
 
         const arcs = data.map((item) => {
-            const arc = shape
-                .arc()
-                .outerRadius(_outerRadius)
-                .innerRadius(_innerRadius)
-                .padAngle(padAngle) // Angle between sections
+            const arc = shape.arc().outerRadius(_outerRadius).innerRadius(_innerRadius).padAngle(padAngle)
 
-            item.arc &&
+            if (item.arc) {
                 Object.entries(item.arc).forEach(([key, value]) => {
                     if (typeof arc[key] === 'function') {
                         if (typeof value === 'string') {
-                            arc[key]((value.split('%')[0] / 100) * _outerRadius)
+                            arc[key]((parseInt(value) / 100) * _outerRadius)
                         } else {
                             arc[key](value)
                         }
                     }
                 })
+            }
 
             return arc
         })
 
         const labelArcs = data.map((item, index) => {
             if (labelRadius) {
-                return shape
-                    .arc()
-                    .outerRadius(_labelRadius)
-                    .innerRadius(_labelRadius)
-                    .padAngle(padAngle)
+                return shape.arc().outerRadius(_labelRadius).innerRadius(_labelRadius).padAngle(padAngle)
             }
             return arcs[index]
         })
@@ -126,13 +139,15 @@ class PieChart extends PureComponent {
 
         return (
             <View pointerEvents={'box-none'} style={style}>
-                <View pointerEvents={'box-none'} style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View pointerEvents={'box-none'} style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
-                        <Svg pointerEvents={Platform.OS === 'android' && 'box-none'} style={{ height, width }}>
-                            {/* center the progress circle*/}
+                        <Svg
+                            pointerEvents={Platform.OS === 'android' ? 'box-none' : undefined}
+                            style={{ height, width }}
+                        >
                             <G x={width / 2} y={height / 2}>
                                 {React.Children.map(children, (child) => {
-                                    if (child && child.props.belowChart) {
+                                    if (React.isValidElement(child) && child.props.belowChart) {
                                         return React.cloneElement(child, extraProps)
                                     }
                                     return null
@@ -151,7 +166,7 @@ class PieChart extends PureComponent {
                                     )
                                 })}
                                 {React.Children.map(children, (child) => {
-                                    if (child && !child.props.belowChart) {
+                                    if (React.isValidElement(child) && !child.props.belowChart) {
                                         return React.cloneElement(child, extraProps)
                                     }
                                     return null
@@ -163,37 +178,6 @@ class PieChart extends PureComponent {
             </View>
         )
     }
-}
-
-PieChart.propTypes = {
-    data: PropTypes.arrayOf(
-        PropTypes.shape({
-            svg: PropTypes.object,
-            key: PropTypes.any.isRequired,
-            value: PropTypes.number,
-            arc: PropTypes.object,
-        })
-    ).isRequired,
-    innerRadius: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    outerRadius: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    labelRadius: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    padAngle: PropTypes.number,
-    animate: PropTypes.bool,
-    animationDuration: PropTypes.number,
-    style: PropTypes.any,
-    sort: PropTypes.func,
-    valueAccessor: PropTypes.func,
-}
-
-PieChart.defaultProps = {
-    width: 100,
-    height: 100,
-    padAngle: 0.05,
-    startAngle: 0,
-    endAngle: Math.PI * 2,
-    valueAccessor: ({ item }) => item.value,
-    innerRadius: '50%',
-    sort: (a, b) => b.value - a.value,
 }
 
 export default PieChart

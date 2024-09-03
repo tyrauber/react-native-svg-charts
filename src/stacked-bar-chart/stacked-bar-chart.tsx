@@ -1,30 +1,49 @@
 import * as array from 'd3-array'
 import * as scale from 'd3-scale'
 import * as shape from 'd3-shape'
-import PropTypes from 'prop-types'
 import React, { PureComponent } from 'react'
-import { View } from 'react-native'
+import { View, ViewStyle } from 'react-native'
 import Svg from 'react-native-svg'
 import Path from '../animated-path'
 
-class BarChart extends PureComponent {
-    static extractDataPoints(data, keys, order = shape.stackOrderNone, offset = shape.stackOffsetNone) {
-        const series = shape
-            .stack()
-            .keys(keys)
-            .order(order)
-            .offset(offset)(data)
-
-        //double merge arrays to extract just the values
-        return array.merge(array.merge(series))
+interface StackedBarChartProps {
+    data: Array<{ [key: string]: number | { value: number; svg?: object } }>
+    keys: Array<string>
+    colors: Array<string>
+    offset?: (series: any, order: any) => any
+    order?: (series: any) => any
+    style?: ViewStyle
+    spacingInner?: number
+    spacingOuter?: number
+    animate?: boolean
+    animationDuration?: number
+    contentInset?: {
+        top?: number
+        left?: number
+        right?: number
+        bottom?: number
     }
+    gridMin?: number
+    gridMax?: number
+    valueAccessor?: (params: { item: any; key: string }) => number
+    numberOfTicks?: number
+    showGrid?: boolean
+    horizontal?: boolean
+    children?: React.ReactNode
+}
 
-    state = {
+interface StackedBarChartState {
+    width: number
+    height: number
+}
+
+class StackedBarChart extends PureComponent<StackedBarChartProps, StackedBarChartState> {
+    state: StackedBarChartState = {
         width: 0,
         height: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -33,14 +52,12 @@ class BarChart extends PureComponent {
         this.setState({ height, width })
     }
 
-    calcXScale(domain) {
-        const { data } = this.props
-
+    calcXScale(domain: any[]) {
         const {
             horizontal,
             contentInset: { left = 0, right = 0 },
-            spacingInner,
-            spacingOuter,
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
         } = this.props
 
         const { width } = this.state
@@ -52,33 +69,27 @@ class BarChart extends PureComponent {
                 .range([left, width - right])
         }
 
-        // use index as domain identifier instead of value since
-        // domain must be same length as number of bars
-        // same value can occur at several places in data
         return scale
             .scaleBand()
-            .domain(data.map((_, index) => index))
+            .domain(domain)
             .range([left, width - right])
             .paddingInner([spacingInner])
             .paddingOuter([spacingOuter])
     }
 
-    calcYScale(domain) {
-        const { data } = this.props
-
+    calcYScale(domain: any[]) {
         const {
             horizontal,
             contentInset: { top = 0, bottom = 0 },
             spacingInner,
             spacingOuter,
         } = this.props
-
         const { height } = this.state
 
         if (horizontal) {
             return scale
                 .scaleBand()
-                .domain(data.map((_, index) => index))
+                .domain(domain)
                 .range([top, height - bottom])
                 .paddingInner([spacingInner])
                 .paddingOuter([spacingOuter])
@@ -90,19 +101,21 @@ class BarChart extends PureComponent {
             .range([height - bottom, top])
     }
 
-    calcAreas(x, y, series) {
+    calcAreas(x: any, y: any, series: any[]) {
         const { horizontal, colors, keys } = this.props
 
         if (horizontal) {
             return array.merge(
                 series.map((serie, keyIndex) => {
-                    return serie.map((entry, entryIndex) => {
+                    return serie.map((entry: any, entryIndex: number) => {
                         const path = shape
                             .area()
-                            .x0((d) => x(d[0]))
-                            .x1((d) => x(d[1]))
-                            .y((d, _index) => (_index === 0 ? y(entryIndex) : y(entryIndex) + y.bandwidth()))
-                            .defined((d) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
+                            .x0((d: any) => x(d[0]))
+                            .x1((d: any) => x(d[1]))
+                            .y((d: any, _index: number) =>
+                                _index === 0 ? y(entryIndex) : y(entryIndex) + y.bandwidth()
+                            )
+                            .defined((d: any) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
 
                         return {
                             path,
@@ -116,13 +129,13 @@ class BarChart extends PureComponent {
 
         return array.merge(
             series.map((serie, keyIndex) => {
-                return serie.map((entry, entryIndex) => {
+                return serie.map((entry: any, entryIndex: number) => {
                     const path = shape
                         .area()
-                        .y0((d) => y(d[0]))
-                        .y1((d) => y(d[1]))
-                        .x((d, _index) => (_index === 0 ? x(entryIndex) : x(entryIndex) + x.bandwidth()))
-                        .defined((d) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
+                        .y0((d: any) => y(d[0]))
+                        .y1((d: any) => y(d[1]))
+                        .x((d: any, _index: number) => (_index === 0 ? x(entryIndex) : x(entryIndex) + x.bandwidth()))
+                        .defined((d: any) => !isNaN(d[0]) && !isNaN(d[1]))([entry, entry])
 
                     return {
                         path,
@@ -134,14 +147,14 @@ class BarChart extends PureComponent {
         )
     }
 
-    calcExtent(values) {
-        const { gridMax, gridMin } = this.props
-
+    calcExtent(values: number[]) {
+        const { gridMin, gridMax } = this.props
         return array.extent([...values, gridMin, gridMax])
     }
 
-    calcIndexes(values) {
-        return values.map((_, index) => index)
+    calcIndexes() {
+        const { data } = this.props
+        return data.map((_, index) => index)
     }
 
     getSeries() {
@@ -168,7 +181,7 @@ class BarChart extends PureComponent {
 
         //double merge arrays to extract just the values
         const values = array.merge(array.merge(series))
-        const indexes = this.calcIndexes(values)
+        const indexes = this.calcIndexes()
 
         const extent = this.calcExtent(values)
         const ticks = array.ticks(extent[0], extent[1], numberOfTicks)
@@ -195,11 +208,11 @@ class BarChart extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
                         <Svg style={{ height, width }}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
+                                if (React.isValidElement(child) && child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -207,7 +220,7 @@ class BarChart extends PureComponent {
                             {areas.map((bar, index) => {
                                 const keyIndex = index % data.length
                                 const key = `${keyIndex}-${bar.key}`
-                                const { svg } = data[keyIndex][bar.key]
+                                const { svg } = data[keyIndex][bar.key] as { svg?: object }
 
                                 return (
                                     <Path
@@ -221,7 +234,7 @@ class BarChart extends PureComponent {
                                 )
                             })}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
+                                if (React.isValidElement(child) && !child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -234,40 +247,4 @@ class BarChart extends PureComponent {
     }
 }
 
-BarChart.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.object),
-    keys: PropTypes.arrayOf(PropTypes.string).isRequired,
-    colors: PropTypes.arrayOf(PropTypes.string).isRequired,
-    offset: PropTypes.func,
-    order: PropTypes.func,
-    style: PropTypes.any,
-    spacingInner: PropTypes.number,
-    spacingOuter: PropTypes.number,
-    animate: PropTypes.bool,
-    animationDuration: PropTypes.number,
-    contentInset: PropTypes.shape({
-        top: PropTypes.number,
-        left: PropTypes.number,
-        right: PropTypes.number,
-        bottom: PropTypes.number,
-    }),
-    gridMin: PropTypes.number,
-    gridMax: PropTypes.number,
-    valueAccessor: PropTypes.func,
-}
-
-BarChart.defaultProps = {
-    spacingInner: 0.05,
-    spacingOuter: 0.05,
-    offset: shape.stackOffsetNone,
-    order: shape.stackOrderNone,
-    width: 100,
-    height: 100,
-    showZeroAxis: true,
-    contentInset: {},
-    numberOfTicks: 10,
-    showGrid: true,
-    valueAccessor: ({ item, key }) => item[key],
-}
-
-export default BarChart
+export default StackedBarChart

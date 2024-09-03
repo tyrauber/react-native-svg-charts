@@ -1,8 +1,18 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { Circle, G, Line, Rect, Text } from 'react-native-svg'
 
-const Tooltip = ({ x, y, value, index, height, text, stroke, pointStroke }) => {
+interface TooltipProps {
+    x: (index: number) => number
+    y: (value: number) => number
+    value: number
+    index: number
+    height: number
+    stroke: string
+    pointStroke: string
+    text: string
+}
+
+const Tooltip: React.FC<TooltipProps> = ({ x, y, value, index, height, text, stroke, pointStroke }) => {
     return (
         <G>
             <Line x1={x(index)} y1={height} x2={x(index)} y2={20} stroke={stroke} />
@@ -16,17 +26,6 @@ const Tooltip = ({ x, y, value, index, height, text, stroke, pointStroke }) => {
             </G>
         </G>
     )
-}
-
-Tooltip.propTypes = {
-    x: PropTypes.func.isRequired,
-    y: PropTypes.func.isRequired,
-    value: PropTypes.number,
-    index: PropTypes.number,
-    height: PropTypes.number,
-    stroke: PropTypes.string,
-    pointStroke: PropTypes.string,
-    text: PropTypes.string,
 }
 
 export default Tooltip

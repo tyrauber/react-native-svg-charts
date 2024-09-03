@@ -1,30 +1,55 @@
-import PropTypes from 'prop-types'
+import React, { PureComponent } from 'react'
+import { View, ViewStyle } from 'react-native'
+import { Svg } from 'react-native-svg'
 import * as array from 'd3-array'
 import * as scale from 'd3-scale'
 import * as shape from 'd3-shape'
-import React, { PureComponent } from 'react'
-import { View } from 'react-native'
-import { Svg } from 'react-native-svg'
 import Path from './animated-path'
 
-class AreaStack extends PureComponent {
-    static extractDataPoints(data, keys, order = shape.stackOrderNone, offset = shape.stackOffsetNone) {
-        const series = shape
-            .stack()
-            .keys(keys)
-            .order(order)
-            .offset(offset)(data)
-
-        //double merge arrays to extract just the values
-        return array.merge(array.merge(series))
+interface StackedAreaChartProps {
+    data: Array<object>
+    keys: Array<string>
+    colors: Array<string>
+    svgs?: Array<object>
+    style?: ViewStyle
+    animate?: boolean
+    animationDuration?: number
+    contentInset?: {
+        top?: number
+        bottom?: number
+        left?: number
+        right?: number
     }
+    gridMin?: number
+    gridMax?: number
+    curve?: any
+    numberOfTicks?: number
+    showGrid?: boolean
+    xScale?: Function
+    xAccessor?: ({ item, index }: { item: any; index: number }) => number
+    yMin?: number
+    yMax?: number
+    xMin?: number
+    xMax?: number
+    clampY?: boolean
+    clampX?: boolean
+    offset?: Function
+    order?: Function
+    children?: React.ReactNode
+}
 
-    state = {
+interface StackedAreaChartState {
+    height: number
+    width: number
+}
+
+class StackedAreaChart extends PureComponent<StackedAreaChartProps, StackedAreaChartState> {
+    state: StackedAreaChartState = {
         height: 0,
         width: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { height, width },
@@ -38,20 +63,21 @@ class AreaStack extends PureComponent {
             data,
             keys,
             colors,
+            curve = shape.curveLinear,
+            offset = shape.stackOffsetNone,
+            order = shape.stackOrderNone,
+            svgs = [],
             animate,
             animationDuration,
             style,
-            curve,
-            numberOfTicks,
-            contentInset: { top = 0, bottom = 0, left = 0, right = 0 },
+            numberOfTicks = 10,
+            contentInset = {},
             gridMin,
             gridMax,
             children,
-            offset,
-            order,
-            svgs,
-            xAccessor,
-            xScale,
+            xScale = scale.scaleLinear,
+            xAccessor = ({ index }) => index,
+            showGrid = true,
             clampY,
             clampX,
         } = this.props
@@ -62,13 +88,10 @@ class AreaStack extends PureComponent {
             return <View style={style} />
         }
 
-        const series = shape
-            .stack()
-            .keys(keys)
-            .order(order)
-            .offset(offset)(data)
+        const { top = 0, bottom = 0, left = 0, right = 0 } = contentInset
 
-        //double merge arrays to extract just the yValues
+        const series = shape.stack().keys(keys).order(order).offset(offset)(data)
+
         const yValues = array.merge(array.merge(series))
         const xValues = data.map((item, index) => xAccessor({ item, index }))
 
@@ -77,7 +100,6 @@ class AreaStack extends PureComponent {
 
         const { yMin = yExtent[0], yMax = yExtent[1], xMin = xExtent[0], xMax = xExtent[1] } = this.props
 
-        //invert range to support svg coordinate system
         const y = scale
             .scaleLinear()
             .domain([yMin, yMax])
@@ -117,11 +139,11 @@ class AreaStack extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flex: 1 }} onLayout={(event) => this._onLayout(event)}>
+                <View style={{ flex: 1 }} onLayout={this._onLayout}>
                     {height > 0 && width > 0 && (
                         <Svg style={{ height, width }}>
                             {React.Children.map(children, (child) => {
-                                if (child && child.props.belowChart) {
+                                if (React.isValidElement(child) && child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -137,7 +159,7 @@ class AreaStack extends PureComponent {
                                 />
                             ))}
                             {React.Children.map(children, (child) => {
-                                if (child && !child.props.belowChart) {
+                                if (React.isValidElement(child) && !child.props.belowChart) {
                                     return React.cloneElement(child, extraProps)
                                 }
                                 return null
@@ -150,46 +172,4 @@ class AreaStack extends PureComponent {
     }
 }
 
-AreaStack.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.object).isRequired,
-    keys: PropTypes.arrayOf(PropTypes.string).isRequired,
-    colors: PropTypes.arrayOf(PropTypes.string).isRequired,
-    svgs: PropTypes.arrayOf(PropTypes.object),
-    offset: PropTypes.func,
-    order: PropTypes.func,
-    style: PropTypes.any,
-    animate: PropTypes.bool,
-    animationDuration: PropTypes.number,
-    contentInset: PropTypes.shape({
-        top: PropTypes.number,
-        left: PropTypes.number,
-        right: PropTypes.number,
-        bottom: PropTypes.number,
-    }),
-    numberOfTicks: PropTypes.number,
-    showGrid: PropTypes.bool,
-    xScale: PropTypes.func,
-    xAccessor: PropTypes.func,
-
-    yMin: PropTypes.any,
-    yMax: PropTypes.any,
-    xMin: PropTypes.any,
-    xMax: PropTypes.any,
-    clampX: PropTypes.bool,
-    clampY: PropTypes.bool,
-}
-
-AreaStack.defaultProps = {
-    curve: shape.curveLinear,
-    offset: shape.stackOffsetNone,
-    order: shape.stackOrderNone,
-    svgs: [],
-    strokeWidth: 2,
-    contentInset: {},
-    numberOfTicks: 10,
-    showGrid: true,
-    xScale: scale.scaleLinear,
-    xAccessor: ({ index }) => index,
-}
-
-export default AreaStack
+export default StackedAreaChart

@@ -1,17 +1,40 @@
 import React, { PureComponent } from 'react'
-import PropTypes from 'prop-types'
-import { Text, View } from 'react-native'
+import { Text, View, ViewStyle } from 'react-native'
 import * as d3Scale from 'd3-scale'
 import * as array from 'd3-array'
 import Svg, { G, Text as SVGText } from 'react-native-svg'
 
-class XAxis extends PureComponent {
-    state = {
+interface XAxisProps {
+    data: Array<any>
+    spacingInner?: number
+    spacingOuter?: number
+    formatLabel?: (value: any, index: number) => string
+    contentInset?: {
+        left?: number
+        right?: number
+    }
+    scale?: Function
+    numberOfTicks?: number
+    xAccessor?: ({ item, index }: { item: any; index: number }) => any
+    svg?: object
+    min?: any
+    max?: any
+    style?: ViewStyle
+    children?: React.ReactNode
+}
+
+interface XAxisState {
+    width: number
+    height: number
+}
+
+class XAxis extends PureComponent<XAxisProps, XAxisState> {
+    state: XAxisState = {
         width: 0,
         height: 0,
     }
 
-    _onLayout(event) {
+    private _onLayout = (event: any) => {
         const {
             nativeEvent: {
                 layout: { width, height },
@@ -23,12 +46,12 @@ class XAxis extends PureComponent {
         }
     }
 
-    _getX(domain) {
+    private _getX(domain: any[]) {
         const {
-            scale,
-            spacingInner,
-            spacingOuter,
-            contentInset: { left = 0, right = 0 },
+            scale = d3Scale.scaleLinear,
+            spacingInner = 0.05,
+            spacingOuter = 0.05,
+            contentInset: { left = 0, right = 0 } = {},
         } = this.props
 
         const { width } = this.state
@@ -41,14 +64,25 @@ class XAxis extends PureComponent {
             x.paddingInner([spacingInner]).paddingOuter([spacingOuter])
 
             //add half a bar to center label
-            return (value) => x(value) + x.bandwidth() / 2
+            return (value: any) => x(value) + x.bandwidth() / 2
         }
 
         return x
     }
 
     render() {
-        const { style, scale, data, xAccessor, formatLabel, numberOfTicks, svg, children, min, max } = this.props
+        const {
+            style,
+            scale = d3Scale.scaleLinear,
+            data,
+            xAccessor = ({ index }) => index,
+            formatLabel = (value) => value,
+            numberOfTicks,
+            svg = {},
+            children,
+            min,
+            max,
+        } = this.props
 
         const { height, width } = this.state
 
@@ -57,7 +91,7 @@ class XAxis extends PureComponent {
         }
 
         const values = data.map((item, index) => xAccessor({ item, index }))
-        const extent = array.extent(values)
+        const extent = array.extent(values) as [number, number]
         const domain = scale === d3Scale.scaleBand ? values : [min || extent[0], max || extent[1]]
 
         const x = this._getX(domain)
@@ -73,8 +107,7 @@ class XAxis extends PureComponent {
 
         return (
             <View style={style}>
-                <View style={{ flexGrow: 1 }} onLayout={(event) => this._onLayout(event)}>
-                    {/*invisible text to allow for parent resizing*/}
+                <View style={{ flexGrow: 1 }} onLayout={this._onLayout}>
                     <Text
                         style={{
                             opacity: 0,
@@ -97,11 +130,12 @@ class XAxis extends PureComponent {
                         >
                             <G>
                                 {React.Children.map(children, (child) => {
-                                    return React.cloneElement(child, extraProps)
+                                    if (React.isValidElement(child)) {
+                                        return React.cloneElement(child, extraProps)
+                                    }
+                                    return null
                                 })}
-                                {// don't render labels if width isn't measured yet,
-                                // causes rendering issues
-                                width > 0 &&
+                                {width > 0 &&
                                     ticks.map((value, index) => {
                                         const { svg: valueSvg = {} } = data[index] || {}
 
@@ -126,33 +160,6 @@ class XAxis extends PureComponent {
             </View>
         )
     }
-}
-
-XAxis.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.object])).isRequired,
-    spacingInner: PropTypes.number,
-    spacingOuter: PropTypes.number,
-    formatLabel: PropTypes.func,
-    contentInset: PropTypes.shape({
-        left: PropTypes.number,
-        right: PropTypes.number,
-    }),
-    scale: PropTypes.func,
-    numberOfTicks: PropTypes.number,
-    xAccessor: PropTypes.func,
-    svg: PropTypes.object,
-    min: PropTypes.any,
-    max: PropTypes.any,
-}
-
-XAxis.defaultProps = {
-    spacingInner: 0.05,
-    spacingOuter: 0.05,
-    contentInset: {},
-    svg: {},
-    xAccessor: ({ index }) => index,
-    scale: d3Scale.scaleLinear,
-    formatLabel: (value) => value,
 }
 
 export default XAxis
